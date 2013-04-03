@@ -1,19 +1,24 @@
 <?php
+/************************************************
+ * PHP-FastDFS-Client (FOR FastDFS v4.06)
+ ************************************************
+ * @Description: 用PHP Socket实现的FastDFS客户端
+ * @Author: $Author: QPWOEIRU96 $
+ * @Version: $Rev: 96 $
+ * @Date: $Date: 2013-04-04 01:30:36 +0800 (周四, 04 四月 2013) $
+ *************************************************/
 
 define('FDFS_PROTO_PKG_LEN_SIZE', 8);
-
 //body_length + command + status
 define('FDFS_HEADER_LENGTH', 10);
-
 define('FDFS_IP_ADDRESS_SIZE', 16);
 define('FDFS_FILE_EXT_NAME_MAX_LEN', 6);
 define('FDFS_GROUP_NAME_MAX_LEN', 16);
-
 define('FDFS_OVERWRITE_METADATA', 1);
 define('FDFS_MERGE_METADATA', 2);
 // 连接超时时间
-define('FDFS_CONNECT_TIME_OUT', 5); 
-
+define('FDFS_CONNECT_TIME_OUT', 5);
+define('FDFS_FILE_PREFIX_MAX_LEN', 16);
 //传输超时时间
 //TODO: stream_set_timeout($fp, $timeout);
 define('FDFS_TRANSFER_TIME_OUT', 0);
@@ -120,13 +125,13 @@ abstract class FastDFS_Base {
         $str_len = strlen($str);
 
         return $str_len > $len
-          ? substr($str, 0, $len)
-        	: $str . pack('x'. ($len - $str_len));
+            ? substr($str, 0, $len)
+            : $str . pack('x'. ($len - $str_len));
     }
 
     final static function buildHeader($command, $length = 0) {
 
-		return self::packU64($length) . pack('Cx', $command);
+        return self::packU64($length) . pack('Cx', $command);
 
     }
 
@@ -162,19 +167,19 @@ abstract class FastDFS_Base {
 
     final static function parseHeader($str) {
 
-    	assert(strlen($str) === FDFS_HEADER_LENGTH);
+        assert(strlen($str) === FDFS_HEADER_LENGTH);
 
-    	$result = unpack('C10', $str);
+        $result = unpack('C10', $str);
 
         $length  = self::unpackU64(substr($str, 0, 8));
         $command = $result[9];
         $status  = $result[10];
 
-		return array(
-			'length'  => $length,
-			'command' => $command,
-			'status'  => $status
-		);
+        return array(
+            'length'  => $length,
+            'command' => $command,
+            'status'  => $status
+        );
 
     }
 
@@ -309,8 +314,8 @@ abstract class FastDFS_Base {
 
     public function __destruct() {
 
-    	if(is_resource($this->_sock))
-    		fclose($this->_sock);
+        if(is_resource($this->_sock))
+            fclose($this->_sock);
     }
 }
 
@@ -329,38 +334,38 @@ class FastDFS_Taracker extends FastDFS_Base{
 
         $this->send($req_header . $req_body);
 
-		$res_header = $this->read(FDFS_HEADER_LENGTH);		
-		$res_info   = self::parseHeader($res_header);
+        $res_header = $this->read(FDFS_HEADER_LENGTH);        
+        $res_info   = self::parseHeader($res_header);
 
-		if($res_info['status'] !== 0) {
+        if($res_info['status'] !== 0) {
 
-			throw new FastDFSException(
-				'something wrong with get storage by group name', 
-				$res_info['status']);
+            throw new FastDFSException(
+                'something wrong with get storage by group name', 
+                $res_info['status']);
 
-			return FALSE;
-		}
+            return FALSE;
+        }
 
         $res_body = !!$res_info['length'] 
-        	? $this->read($res_info['length'])
-        	: '';
+            ? $this->read($res_info['length'])
+            : '';
 
         $group_name   = trim(substr($res_body, 0, FDFS_GROUP_NAME_MAX_LEN));
         $storage_addr = trim(substr($res_body, FDFS_GROUP_NAME_MAX_LEN, 
-        	FDFS_IP_ADDRESS_SIZE - 1));
+            FDFS_IP_ADDRESS_SIZE - 1));
 
         list(,,$storage_port)  = unpack('N2', substr($res_body, 
-        	FDFS_GROUP_NAME_MAX_LEN + FDFS_IP_ADDRESS_SIZE - 1, 
-        	FDFS_PROTO_PKG_LEN_SIZE));
+            FDFS_GROUP_NAME_MAX_LEN + FDFS_IP_ADDRESS_SIZE - 1, 
+            FDFS_PROTO_PKG_LEN_SIZE));
 
         $storage_index  = ord(substr($res_body, -1));
 
 
         return array(
-			'group_name'    => $group_name,
-			'storage_addr'  => $storage_addr,
-			'storage_port'  => $storage_port,
-			'storage_index' => $storage_index
+            'group_name'    => $group_name,
+            'storage_addr'  => $storage_addr,
+            'storage_port'  => $storage_port,
+            'storage_index' => $storage_index
         );
 
 
@@ -370,15 +375,17 @@ class FastDFS_Taracker extends FastDFS_Base{
 
 class FastDFS_Storage extends FastDFS_Base {
 
-	/**
-	 * 上传文件
-	 *
-	 * @command 11
-	 * @param char $index 索引
-	 * @param string $filename
-	 * @param string $ext
-	 */
+    /**
+     * 上传文件
+     *
+     * @command 11
+     * @param char $index 索引
+     * @param string $filename
+     * @param string $文件扩展名
+     * @return array 
+     */
     public function uploadFile($index, $filename, $ext = '') {
+
 
         if(!file_exists($filename))
             return FALSE;
@@ -387,8 +394,8 @@ class FastDFS_Storage extends FastDFS_Base {
 
         if(strlen($ext) > FDFS_FILE_EXT_NAME_MAX_LEN) {
 
-        	throw new FastDFSException('file ext too long.', 0);
-        	return FALSE;
+            throw new FastDFSException('file ext too long.', 0);
+            return FALSE;
         }
 
         if($ext === '') {
@@ -401,14 +408,14 @@ class FastDFS_Storage extends FastDFS_Base {
         $filesize = filesize($filename);
 
         $req_body_length = 1 + FDFS_PROTO_PKG_LEN_SIZE + 
-        	FDFS_FILE_EXT_NAME_MAX_LEN + $filesize;
+            FDFS_FILE_EXT_NAME_MAX_LEN + $filesize;
 
         $req_header = self::buildHeader(11, $req_body_length);
         $req_body   = pack('C', $index) . self::packU64($filesize) . self::padding($ext, FDFS_FILE_EXT_NAME_MAX_LEN);
         $this->send($req_header . $req_body);
 
         /*while( !feof($fp) ) {
-        	fwrite($this->_sock, fread($fp, FDFS_FILE_TRANSFER_BLOCK_SIZE));
+            fwrite($this->_sock, fread($fp, FDFS_FILE_TRANSFER_BLOCK_SIZE));
         }*/
 
         stream_copy_to_stream($fp, $this->_sock, $filesize);
@@ -416,24 +423,24 @@ class FastDFS_Storage extends FastDFS_Base {
         flock($fp, LOCK_UN);
         fclose($fp);
 
-		$res_header = $this->read(FDFS_HEADER_LENGTH);
-		$res_info   = self::parseHeader($res_header);
+        $res_header = $this->read(FDFS_HEADER_LENGTH);
+        $res_info   = self::parseHeader($res_header);
 
-		if($res_info['status'] !== 0) {
+        if($res_info['status'] !== 0) {
 
-			throw new FastDFSException(
-				'something wrong with uplode file', 
-				$res_info['status']);
+            throw new FastDFS_Exception(
+                'something wrong with uplode file', 
+                $res_info['status']);
 
-			return FALSE;
-		}
+            return FALSE;
+        }
 
-		$res_body  = $res_info['length'] 
-			? $this->read($res_info['length']) 
-			: FALSE;
+        $res_body  = $res_info['length'] 
+            ? $this->read($res_info['length']) 
+            : FALSE;
 
-		$group_name = trim(substr($res_body, 0, FDFS_GROUP_NAME_MAX_LEN));
-		$file_path  = trim(substr($res_body, FDFS_GROUP_NAME_MAX_LEN));
+        $group_name = trim(substr($res_body, 0, FDFS_GROUP_NAME_MAX_LEN));
+        $file_path  = trim(substr($res_body, FDFS_GROUP_NAME_MAX_LEN));
 
         return array(
             'group_name' => $group_name,
@@ -441,6 +448,86 @@ class FastDFS_Storage extends FastDFS_Base {
         );
 
     }
+
+    /**
+     * 上传Slave文件
+     *
+     * @command 21
+     *
+     */
+    public function uploadSlaveFile($filename, $master_file_path, $prefix_name, $ext = '') {
+
+        if(!file_exists($filename))
+            return FALSE;
+
+        $path_info = pathinfo($filename);
+
+        if(strlen($ext) > FDFS_FILE_EXT_NAME_MAX_LEN) {
+
+            throw new FastDFSException('file ext too long.', 0);
+            return FALSE;
+        }
+
+        if($ext === '') {
+            $ext = $path_info['extension'];
+        }
+
+        $fp = fopen($filename, 'rb');
+        flock($fp, LOCK_SH);
+
+        $filesize = filesize($filename);
+        $master_file_path_length = strlen($master_file_path);
+
+        $req_body_length = 16 + FDFS_FILE_PREFIX_MAX_LEN + 
+            FDFS_FILE_EXT_NAME_MAX_LEN + $master_file_path_length + $filesize;
+
+        $req_header = self::buildHeader(21, $req_body_length);
+        $req_body   = pack('x4N', $master_file_path_length) . self::packU64($filesize) . self::padding($prefix_name, FDFS_FILE_PREFIX_MAX_LEN);
+        $req_body  .= self::padding($ext, FDFS_FILE_EXT_NAME_MAX_LEN) . $master_file_path;
+
+        $this->send($req_header . $req_body);
+
+        stream_copy_to_stream($fp, $this->_sock, $filesize);
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+
+        $res_header = $this->read(FDFS_HEADER_LENGTH);
+        $res_info   = self::parseHeader($res_header);
+
+        if($res_info['status'] !== 0) {
+
+            if($res_info['status'] == 17) {
+                $msg = 'targe slave file already existd';
+            } else {
+                $msg = 'something in upload slave file';
+            }
+
+            throw new FastDFS_Exception(
+                $msg, 
+                $res_info['status']);
+
+            return FALSE;
+        }
+
+        $res_body  = $res_info['length'] 
+            ? $this->read($res_info['length']) 
+            : FALSE;
+
+        $group_name = trim(substr($res_body, 0, FDFS_GROUP_NAME_MAX_LEN));
+        $file_path  = trim(substr($res_body, FDFS_GROUP_NAME_MAX_LEN));
+
+        return array(
+            'group_name' => $group_name,
+            'file_path'  => $file_path
+        );
+
+    }
+
+    //TODO
+    public function upload_appender_file() {
+
+    } 
 
     /**
      * 删除文件
@@ -531,6 +618,11 @@ class FastDFS_Storage extends FastDFS_Base {
      * 下载文件(不建议对大文件使用)
      *
      * @command 14
+     * @param string $group_name 组名称
+     * @param string $file_path 文件路径
+     * @param int $offset 下载文件偏移量
+     * @param int $length 下载文件大小
+     * @return string 文件内容
      */
     public function downloadFile($group_name, $file_path, $offset = 0, $length = 0) {
 
@@ -557,9 +649,11 @@ class FastDFS_Storage extends FastDFS_Base {
      * 检索文件信息
      *
      * @command 22
-     * @TODO
+     * @param string $group_name 组名称
+     * @param string $file_path 文件路径
+     * @return array
      */
-    /*public function getFileInfo($group_name, $file_path) {
+    public function getFileInfo($group_name, $file_path) {
 
         $req_body_length = strlen($file_path) + FDFS_GROUP_NAME_MAX_LEN;
         $req_header      = self::buildHeader(22, $req_body_length);        
@@ -576,13 +670,20 @@ class FastDFS_Storage extends FastDFS_Base {
             ? $this->read($res_info['length']) 
             : FALSE;
 
-        $file_size = self::unpackU64(substr($res_body, 0, FDFS_PROTO_PKG_LEN_SIZE));
-        $timestamp = self::unpackU64(substr($res_body, FDFS_PROTO_PKG_LEN_SIZE, FDFS_PROTO_PKG_LEN_SIZE));
-        //var_dump(substr($res_body, FDFS_PROTO_PKG_LEN_SIZE * 2, 4));
-        
-        $checksum  = unpack('N*', substr($res_body, FDFS_PROTO_PKG_LEN_SIZE * 2, 4));
-        $source_ip = trim(substr($res_body, - FDFS_IP_ADDRESS_SIZE));
-    }*/
+        $file_size     = self::unpackU64(substr($res_body, 0, FDFS_PROTO_PKG_LEN_SIZE));
+        $timestamp     = self::unpackU64(substr($res_body, FDFS_PROTO_PKG_LEN_SIZE, FDFS_PROTO_PKG_LEN_SIZE));
+        list(,,$crc32) = unpack('N2', substr($res_body, 2 * FDFS_PROTO_PKG_LEN_SIZE, FDFS_PROTO_PKG_LEN_SIZE));
+        $crc32         = base_convert(sprintf('%u', $crc32), 10, 16);
+        $storage_id    = trim(substr($res_body, -16));
+
+        return array(
+            'file_size'  => $file_size,
+            'timestamp'  => $timestamp,
+            'crc32'      => $crc32,
+            'storage_id' => $storage_id
+        );
+
+    }
 
 }
 
