@@ -1,31 +1,46 @@
 PHP-FastDFS-Client
 ==================
 
-用PHP Socket 实现的 FastDFS 客户端，不完全版本，修改下Exception能在测试环境使用，2013年3月29日（也就是大大前天 星期五）了解的FastDFS。
-星期六开始实现，因为没有Windows端的客户端，（试了下移植它自带的php client，不成功，契合的太深了。）
+用PHP Socket 实现的 FastDFS 客户端.
+目前支持版本为 FastDFS 4.06
 
-星期天去玩了 今天又被上头完成一个微博的功能... 估计一段时间都没法完善了 先放出来 
-
-实现了以下几个必须的功能吧：
+实现功能：
 
     /**
      * 根据GroupName申请Storage地址
      *
      * @command 104
      * @param string $group_name 组名称
+     * @return array/boolean
      */
      
-     
+     FastDFS_Tracker::applyStorage($group_name)
+
     /**
      * 上传文件
-  	 *
-  	 * @command 11
-  	 * @param char $index 索引
-  	 * @param string $filename
-  	 * @param string $ext
-  	 */
-
-
+     *
+     * @command 11
+     * @param char $index 索引
+     * @param string $filename
+     * @param string $文件扩展名
+     * @return array 
+     */
+     
+     FastDFS_Storage::uploadFile($index, $filename, $ext = '')
+     
+    /**
+     * 上传Slave文件
+     *
+     * @command 21
+     * @param string $filename 待上传的文件名称
+     * @param string $master_file_path 主文件名称
+     * @param string $prefix_name 后缀的前缀名
+     * @param string $ext 后缀名称
+     * @return array/boolean
+     */
+     
+     FastDFS_Storage::uploadSlaveFile($filename, $master_file_path, $prefix_name, $ext = '')
+     
     /**
      * 删除文件
      *
@@ -35,6 +50,8 @@ PHP-FastDFS-Client
      * @return boolean 删除成功与否
      */
      
+     FastDFS_Storage::deleteFile($group_name, $file_path)
+     
     /**
      * 获取文件元信息
      *
@@ -43,6 +60,8 @@ PHP-FastDFS-Client
      * @param string $file_path 文件路径 
      * @return array 元信息数组
      */
+     
+     FastDFS_Storage::getFileMetaData($group_name, $file_path)
      
     /**
      * 设置文件元信息
@@ -54,11 +73,32 @@ PHP-FastDFS-Client
      * @return boolean 设置成功与否
      */
      
+     FastDFS_Storage::setFileMetaData($group_name, $file_path, array $meta_data, $flag =  FDFS_OVERWRITE_METADATA)
+     
     /**
      * 下载文件(不建议对大文件使用)
      *
      * @command 14
+     * @param string $group_name 组名称
+     * @param string $file_path 文件路径
+     * @param int $offset 下载文件偏移量
+     * @param int $length 下载文件大小
+     * @return string 文件内容
      */
      
-性能 还过得去吧 内存控制比较好 10MB 上传 才用 0.2MB   写的还是没有很马虎的
-本机测试了下 能达到百兆网卡的峰值 条件不是很好 没多少测试 可能有一些隐藏的Bug 欢迎反馈 比较我也才了解没几天
+     FastDFS_Storage::downloadFile($group_name, $file_path, $offset = 0, $length = 0)
+     
+    /**
+     * 检索文件信息
+     *
+     * @command 22
+     * @param string $group_name 组名称
+     * @param string $file_path 文件路径
+     * @return array
+     */
+     
+     FastDFS_Storage::getFileInfo($group_name, $file_path)
+     
+TODO LIST:
+上传可更新文件: uploadAppenderFile()
+附加可更新文件信息: appendFile()
