@@ -8,7 +8,7 @@ $time_start = microtime(TRUE);
 $tracker_addr = '10.0.0.5';
 $tracker_port = 22122;
 
-$tracker      = new FastDFS_Taracker($tracker_addr, $tracker_port);
+$tracker      = new FastDFS_Tracker($tracker_addr, $tracker_port);
 $storage_info = $tracker->applyStorage('group1');
 
 $group_name = 'group1';
