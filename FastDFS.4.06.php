@@ -1,6 +1,6 @@
 <?php
 /************************************************
- * PHP-FastDFS-Client (FOR FastDFS v4.06)
+ * PHP-FastDFS-Client (FOR FastDFS v4.0.6)
  ************************************************
  * @Description: 用PHP Socket实现的FastDFS客户端
  * @Author: $Author: QPWOEIRU96 $
@@ -22,10 +22,6 @@ define('FDFS_FILE_PREFIX_MAX_LEN', 16);
 //传输超时时间
 //TODO: stream_set_timeout($fp, $timeout);
 define('FDFS_TRANSFER_TIME_OUT', 0);
-
-//文件传输块大小 不需要修改 影响内存使用 跟传输时间 太大太小都有问题 建议为1MB 
-//已废弃 使用stream_copy_to_stream
-//define('FDFS_FILE_TRANSFER_BLOCK_SIZE', 1048576);
 
 class FastDFS_Exception extends \Exception {
 
@@ -103,14 +99,6 @@ abstract class FastDFS_Base {
             throw new FastDFS_Exception($this->_errstr, $this->_errno);
             return FALSE;
         }
-
-        /*$data  = '';
-
-        while (!feof($this->_sock)) {
-            $data .= fread($this->_sock, $length);
-            $stream_meta_data = stream_get_meta_data($this->_sock); //Added line
-            if($stream_meta_data['unread_bytes'] <= 0) break; //Added line
-        }*/
 
         $data = stream_get_contents($this->_sock, $length);
 
@@ -319,13 +307,14 @@ abstract class FastDFS_Base {
     }
 }
 
-class FastDFS_Taracker extends FastDFS_Base{
+class FastDFS_Tracker extends FastDFS_Base{
 
     /**
      * 根据GroupName申请Storage地址
      *
      * @command 104
      * @param string $group_name 组名称
+     * @return array/boolean
      */
     public function applyStorage($group_name) {
 
@@ -414,10 +403,6 @@ class FastDFS_Storage extends FastDFS_Base {
         $req_body   = pack('C', $index) . self::packU64($filesize) . self::padding($ext, FDFS_FILE_EXT_NAME_MAX_LEN);
         $this->send($req_header . $req_body);
 
-        /*while( !feof($fp) ) {
-            fwrite($this->_sock, fread($fp, FDFS_FILE_TRANSFER_BLOCK_SIZE));
-        }*/
-
         stream_copy_to_stream($fp, $this->_sock, $filesize);
 
         flock($fp, LOCK_UN);
@@ -453,7 +438,11 @@ class FastDFS_Storage extends FastDFS_Base {
      * 上传Slave文件
      *
      * @command 21
-     *
+     * @param string $filename 待上传的文件名称
+     * @param string $master_file_path 主文件名称
+     * @param string $prefix_name 后缀的前缀名
+     * @param string $ext 后缀名称
+     * @return array/boolean
      */
     public function uploadSlaveFile($filename, $master_file_path, $prefix_name, $ext = '') {
 
